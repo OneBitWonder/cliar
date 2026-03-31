@@ -9,13 +9,13 @@ A simple drop-in Java class for parsing command-line arguments.
 
 ## Usage Example
 
-Include `Arguments.java` in your project and use it in your own `main` class:
+Include `Cliar.java` in your project and use it in your own `main` class:
 
 ```java
 public class Main {
     public static void main(String[] args) {
         try {
-            Arguments arguments = Arguments.from(args);
+            Cliar arguments = Cliar.from(args);
 
             // ...
         } catch (IllegalArgumentException ex) {
@@ -26,3 +26,10 @@ public class Main {
         // ...
     }
 }
+
+## Article
+
+Read my article on DEV.to:
+Building CLIAR — A simple drop-in Java class for parsing command-line arguments
+[Part 1](https://dev.to/onebitwonder/building-cliar-a-simple-drop-in-java-class-for-parsing-command-line-arguments-part-1-jle)
+[Part 2] ... comming soon

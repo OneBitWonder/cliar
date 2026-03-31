@@ -31,13 +31,13 @@ import java.util.List;
  * 
  * @author onebitwonder
  */
-public class Arguments {
+public class Cliar {
     
     /**
      * Private constructor to prevent direct instantiation. Instances are created
      * exclusively through the {@link #from(String[])} factory method.
     */
-    private Arguments() {
+    private Cliar() {
         ;
     }
     
@@ -55,10 +55,10 @@ public class Arguments {
     private final List<String> flags = new ArrayList<>();
 
     /**
-     * Parses the supplied command-line arguments and constructs an {@code Arguments}
+     * Parses the supplied command-line arguments and constructs an {@code Cliar}
      * instance containing the recognized flags.
      * <p>
-     * Arguments must follow the case-insensitive UNIX short-option format
+     * Cliar must follow the case-insensitive UNIX short-option format
      * (e.g., {@code -x}). Only single-character options are supported; long options
      * and options with values are not recognized. All flags are normalized to
      * lower-case. If a flag appears multiple times, the most recent occurrence
@@ -69,15 +69,15 @@ public class Arguments {
      *
      * @param args the command-line arguments; each element must be of the form
      *             {@code "-x"}
-     * @return an {@code Arguments} instance containing the parsed flags
+     * @return an {@code Cliar} instance containing the parsed flags
      * @throws IllegalArgumentException if {@code args} is {@code null} or empty
     */
-    public static Arguments from(String[] args) throws IllegalArgumentException {
+    public static Cliar from(String[] args) throws IllegalArgumentException {
         if ((null == args) || (0 == args.length)) {
             throw new IllegalArgumentException("String[] args is null.");
         }
         
-        Arguments arguments = new Arguments();
+        Cliar arguments = new Cliar();
         
         for (String arg : args) {
             if (arg.startsWith("-")) {
@@ -88,6 +88,8 @@ public class Arguments {
                 } else {
                     arguments.flags.add(arg);
                 }
+            } else {
+                throw new IllegalArgumentException(String.format("Invalid option %s.", arg));
             }
         }
         
