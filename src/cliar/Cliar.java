@@ -59,16 +59,20 @@ public class Cliar {
      * instance containing the recognized flags.
      * <p>
      * Cliar must follow the case-insensitive UNIX short-option format
-     * (e.g., {@code -x}). Only single-character options are supported; long options
-     * and options with values are not recognized. All flags are normalized to
-     * lower-case. If a flag appears multiple times, the most recent occurrence
-     * overwrites any previous one.
+     * (e.g., {@code -x}). Options may contain one or more single-character flags
+     * grouped together (e.g., "-x" or "-xyz").
+     * Long options and options with values are not recognized.
+     * All flags are normalized to
+     * lower-case. Only alphabetic characters are permitted as 
+     * flags; any non-letter character results in an exception.
+     * If a flag appears multiple times, the most recent occurrence
+     * overwrites any previous one. 
      * <p>
      * Each supplied flag is treated as a boolean setting with an implicit value of
      * {@code true}.
      *
      * @param args the command-line arguments; each element must be of the form
-     *             {@code "-x"}
+     *             {@code "-x"} or a grouped short option such as {@code "-xyz"}
      * @return an {@code Cliar} instance containing the parsed flags
      * @throws IllegalArgumentException if {@code args} is {@code null} or empty
     */
@@ -80,13 +84,13 @@ public class Cliar {
         Cliar arguments = new Cliar();
         
         for (String arg : args) {
-            if (arg.startsWith("-")) {
-                arg = arg.substring(1);
-                
-                if (1 < arg.length()) {
-                    throw new IllegalArgumentException(String.format("Invalid option %s.", arg));
-                } else {
-                    arguments.flags.add(arg);
+            if (arg.startsWith("-") && !arg.startsWith("--")) {
+                for (char chr : arg.substring(1).toCharArray()) {
+                    if (Character.isLetter(chr)) {
+                        arguments.flags.add(String.valueOf(Character.toLowerCase(chr)));
+                    } else {
+                        throw new IllegalArgumentException(String.format(String.format("Invalid option '%c' in argument %s.", chr, arg), arg));
+                    }
                 }
             } else {
                 throw new IllegalArgumentException(String.format("Invalid option %s.", arg));
