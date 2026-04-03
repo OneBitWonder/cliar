@@ -17,14 +17,18 @@
 package cliar;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Represents a collection of boolean command-line flags for an application.
  * <p>
  * This class provides simple parsing and storage of UNIX-style short options
- * (e.g., {@code -x}). Only single-character flags are supported, and each flag
- * is treated as a boolean value without an associated argument.
+ * (e.g., {@code -x} or grouped {@code -xyz}) as well as GNU-style long options
+ * (e.g., {@code --verbose} or {@code --output=file.txt}). Short options are
+ * single-character alphabetic flags. Long options may optionally include a
+ * value using the {@code --key=value} syntax.
  * <p>
  * The class is designed as a lightweight, drop-in utility rather than a
  * full-featured command-line parsing framework.
@@ -42,7 +46,7 @@ public class Cliar {
     }
     
     /**
-     * Stores the collection of command-line flags supplied to the application.
+     * Stores the collection of flags supplied to the application.
      * <p>
      * Each flag is treated as a boolean setting: a flag is considered {@code true}
      * when present on the command line and {@code false} when absent. Flags are
@@ -51,29 +55,45 @@ public class Cliar {
      * If a flag appears multiple times, the most recent occurrence overwrites any
      * previous one.
     */
-    // Future versions may support flags with associated values (e.g., -o=file.txt).
     private final List<String> flags = new ArrayList<>();
 
     /**
+     * Stores the collection of options supplied to the application.
+     * <p>
+     * Each option is treated as a key-value pair. Options are
+     * recorded in the order they appear, although ordering has no semantic effect.
+     * <p>
+     * If an option appears multiple times, the most recent occurrence overwrites any
+     * previous one.
+    */
+    private final Map<String, String> options = new HashMap();
+    
+    /**
+     * TODO: REWRITE TO ALLOW long options and key value pair options
      * Parses the supplied command-line arguments and constructs an {@code Cliar}
      * instance containing the recognized flags.
      * <p>
-     * Cliar must follow the case-insensitive UNIX short-option format
-     * (e.g., {@code -x}). Options may contain one or more single-character flags
-     * grouped together (e.g., "-x" or "-xyz").
-     * Long options and options with values are not recognized.
-     * All flags are normalized to
-     * lower-case. Only alphabetic characters are permitted as 
-     * flags; any non-letter character results in an exception.
-     * If a flag appears multiple times, the most recent occurrence
-     * overwrites any previous one. 
+     * Cliar supports both UNIX-style short options and GNU-style long options.
+     * Short options use the {@code -x} syntax and may be grouped together
+     * (e.g., {@code -xyz}), with each character representing a separate
+     * alphabetic boolean flag. All short-option flags are normalized to
+     * lower-case.
+     * <p>
+     * Long options use the {@code --key} or {@code --key=value} syntax.
+     * If a long option is provided without a value, it is treated as a boolean
+     * setting with an implicit value of {@code true}. Long-option keys are
+     * normalized to lower-case. Any long option containing an {@code =} is
+     * interpreted as a key–value pair.
+     * <p>
+     * If a flag or option appears multiple times, the most recent occurrence
+     * overwrites any previous one.
      * <p>
      * Each supplied flag is treated as a boolean setting with an implicit value of
      * {@code true}.
      *
-     * @param args the command-line arguments; each element must be of the form
-     *             {@code "-x"} or a grouped short option such as {@code "-xyz"}
-     * @return an {@code Cliar} instance containing the parsed flags
+     * @param args the command-line arguments; each element must be one of the following forms:
+     *              {@code -x}, {@code -xyz}, {@code --key}, or {@code --key=value}
+     * @return an {@code Cliar} instance containing the parsed flags and options
      * @throws IllegalArgumentException if {@code args} is {@code null} or empty
     */
     public static Cliar from(String[] args) throws IllegalArgumentException {
@@ -84,12 +104,24 @@ public class Cliar {
         Cliar arguments = new Cliar();
         
         for (String arg : args) {
-            if (arg.startsWith("-") && !arg.startsWith("--")) {
+            if (arg.startsWith("--") && (2 < arg.length())) {
+                arg = arg.substring(2);
+                
+                int index = arg.indexOf("=");
+                if (-1 != index) {
+                    String key = arg.substring(0, index);
+                    String val = arg.substring(index + 1);
+                    
+                    arguments.options.put(key.toLowerCase(), val);
+                } else {
+                    arguments.options.put(arg, "true");
+                }
+            } else if (arg.startsWith("-") && !arg.startsWith("--")) {
                 for (char chr : arg.substring(1).toCharArray()) {
                     if (Character.isLetter(chr)) {
                         arguments.flags.add(String.valueOf(Character.toLowerCase(chr)));
                     } else {
-                        throw new IllegalArgumentException(String.format(String.format("Invalid option '%c' in argument %s.", chr, arg), arg));
+                        throw new IllegalArgumentException(String.format("Invalid option '%c' in argument %s.", chr, arg));
                     }
                 }
             } else {
