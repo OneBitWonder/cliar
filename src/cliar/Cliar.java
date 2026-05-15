@@ -77,18 +77,22 @@ public class Cliar {
          *                                  are {@code null} or blank, or if the short option
          *                                  is not a single character
          */
-        public Option(String shortOption, String longOption, String description, boolean required, boolean expectsValue) {
+        public Option(String shortOption, String longOption, String description, boolean required, boolean expectsValue) throws IllegalArgumentException {
             
-            if ((shortOption == null || shortOption.isBlank()) && (longOption == null || longOption.isBlank())) {
+            if ((null == shortOption || shortOption.isBlank()) && (null == longOption || longOption.isBlank())) {
                 throw new IllegalArgumentException("Option requires short or long name.");
             }
 
-            if ((shortOption != null) && (1 != shortOption.length())) {
+            if ((null != shortOption) && (1 != shortOption.length())) {
                 throw new IllegalArgumentException("Short option must be a single character.");
             }
             
-            if (shortOption != null && expectsValue) {
-                throw new IllegalArgumentException("Short options cannot expect values");
+            if ((null != shortOption) && expectsValue) {
+                throw new IllegalArgumentException("Short options cannot expect values.");
+            }
+            
+            if ((null == description) || description.isBlank()) {
+                throw new IllegalArgumentException("Option must have a description.");
             }
             
             this.shortOption = shortOption;
@@ -170,6 +174,28 @@ public class Cliar {
         public boolean expectsValue() {
             return expectsValue;
         }
+        
+        /**
+         * Returns a human-readable representation of this option's name.
+         * <p>
+         * If both a short and a long option are defined, the result is formatted as
+         * {@code -s/--long}. If only a long option exists, the result is
+         * {@code --long}. If only a short option exists, the result is {@code -s}.
+         * <p>
+         * This method is intended for use in error messages, diagnostics, and other
+         * contexts where a concise, user-facing identifier is required.
+         *
+         * @return the formatted option name
+         */
+        public String getName() {
+            if (hasShortOption() && hasLongOption()) {
+                return String.format("-%s/--%s", getShortOption(), getLongOption());
+            } if (hasLongOption()) {
+                return String.format("--%s", getLongOption());
+            } else {
+                return String.format("-%s", getShortOption());
+            }
+        }
     }
     
     /**
@@ -180,9 +206,46 @@ public class Cliar {
         ;
     }
     
+    /**
+     * Returns a formatted help text describing all declared options.
+     * <p>
+     * The output lists each option on its own line, showing the short option,
+     * the long option padded to a uniform width, and the option's description.
+     * No line wrapping is performed; descriptions are printed as provided.
+     *
+     * @return a human-readable help string describing all declared options
+     */
     public String help() {
-        return "NOT IMPLEMENTED YET.";
+        int maxLen = 0;
+        
+        for (Option opt : declaredOptions) {
+            if (null != opt.getLongOption()) {
+                int len = opt.getLongOption().length();
+                maxLen = len > maxLen ? len : maxLen;
+            }
+        }
+        
+        StringBuilder helpString = new StringBuilder();
+        
+        for (Option opt: declaredOptions) {
+            String shortOption = null != opt.getShortOption() ? "-" + opt.getShortOption() : "  ";
+            String longOption = null != opt.getLongOption() ? "--" + opt.getLongOption() : "";
+            
+            helpString.append(String.format("%s %-" + maxLen + "s %s\n", shortOption, longOption, opt.getDescription()));
+        }
+        
+        return helpString.toString();
     }
+    
+    /**
+     * The set of all {@link Option} instances declared for this CLIAR parser.
+     * <p>
+     * These options define the complete interface of the command line: short
+     * options, long options, descriptions, and whether a value is expected.
+     * The array is used internally for validation and for generating the
+     * formatted help text returned by {@link #help()}.
+     */
+    private Option[] declaredOptions;
     
     /**
      * Maps short option names (without leading {@code -}) to their corresponding {@link Option} definitions.
@@ -223,6 +286,7 @@ public class Cliar {
      *                                  characters, or references an undefined option
      */
     private static void parseShortOption(String arg, Cliar cliar) throws IllegalArgumentException  {
+
         if (arg.isBlank()) {
             throw new IllegalArgumentException("Argument is empty.");
         }
@@ -234,16 +298,16 @@ public class Cliar {
                 if (null != opt) {
                     
                     if (cliar.parsedOptions.containsKey(opt)) {
-                        throw new IllegalArgumentException("Duplicate short option: -" + opt.shortOption);
+                        throw new IllegalArgumentException("Duplicate short option: -" + opt.getShortOption());
                     }
 
                     cliar.parsedOptions.put(opt, null);
                     continue;
                 }
                 
-                throw new IllegalArgumentException(String.format("Invalid option '%c' in argument %s.", chr, arg));
+                throw new IllegalArgumentException(String.format("Invalid option '%c' in argument -%s.", chr, arg));
             } else {
-                throw new IllegalArgumentException(String.format("Invalid option '%c' in argument %s.", chr, arg));
+                throw new IllegalArgumentException(String.format("Invalid option '%c' in argument -%s.", chr, arg));
             }
         }
     }
@@ -268,6 +332,7 @@ public class Cliar {
      *                                  the option's value requirements
      */
     private static void parseLongOption(String arg, Cliar cliar) throws IllegalArgumentException {
+
         if (arg.isBlank()) {
             throw new IllegalArgumentException("Argument is empty.");            
         }
@@ -281,17 +346,14 @@ public class Cliar {
             val = arg.substring(index + 1);
         }
 
-        if (key.isEmpty()) {// TODO: allows blanks but not zero lenght value. why not zero lenght? maybe allow that too?
+        if (key.isEmpty()) {
             throw new IllegalArgumentException("Argument is empty.");            
         }
 
-        // TODO: maybe remove this? will allow nearly any character; restrict to non-control characters?
-        // Must start with a letter
         if (! Character.isLetter(key.charAt(0))) {
             throw new IllegalArgumentException("Argument name must start with a letter.");            
         }
 
-        // May only contain letter, digit, hyphen
         for (int i = 1; i < key.length(); i++) {
             char chr = key.charAt(i);
 
@@ -303,15 +365,15 @@ public class Cliar {
         Option opt = cliar.longOptions.get(key);
         
         if (null == opt) {
-            throw new IllegalArgumentException(String.format("Invalid option '%s'.", key));
+            throw new IllegalArgumentException(String.format("Invalid option '--%s'.", key));
         }
         
-        if (opt.expectsValue && ((index == -1) || val.isBlank())) {
-            throw new IllegalArgumentException(String.format("Option '%s' required a value.", key));
+        if (opt.expectsValue() && ((index == -1) || val.isBlank())) {
+            throw new IllegalArgumentException(String.format("Option '--%s' requires a value.", opt.getLongOption()));
         }
         
         if (cliar.parsedOptions.containsKey(opt)) {
-            throw new IllegalArgumentException("Duplicate long option: --" + opt.longOption);
+            throw new IllegalArgumentException("Duplicate long option: --" + opt.getLongOption());
         }
 
         cliar.parsedOptions.put(opt, val);
@@ -346,32 +408,39 @@ public class Cliar {
      *                                  or if a required option is missing
      */
     public static Cliar from(String[] args, Option[] options) throws IllegalArgumentException {
-        Cliar cliar = new Cliar();
+
+        if (null == args) {
+            throw new IllegalArgumentException("Arguments must not be null.");
+        }
+
+        if ((null == options) || (0 == options.length)) {
+            throw new IllegalArgumentException("No options declared.");
+        }
         
+        Cliar cliar = new Cliar();
+
+        cliar.declaredOptions = options;
+                
         for (Option opt : options) {
-            if (options == null) {
+            if (null == opt) {
                 throw new IllegalArgumentException("Options must not be null.");
             }
             
             if (opt.hasShortOption()) {
-                if (cliar.shortOptions.containsKey(opt.shortOption)) {
-                    throw new IllegalArgumentException("Duplicate short option: -" + opt.shortOption);
+                if (cliar.shortOptions.containsKey(opt.getShortOption())) {
+                    throw new IllegalArgumentException("Duplicate short option: -" + opt.getShortOption());
                 }
                 
-                cliar.shortOptions.put(opt.shortOption, opt);
+                cliar.shortOptions.put(opt.getShortOption(), opt);
             }
             
             if (opt.hasLongOption()) {
-                if (cliar.longOptions.containsKey(opt.longOption)) {
-                    throw new IllegalArgumentException("Duplicate long option: --" + opt.longOption);
+                if (cliar.longOptions.containsKey(opt.getLongOption())) {
+                    throw new IllegalArgumentException("Duplicate long option: --" + opt.getLongOption());
                 }
                 
-                cliar.longOptions.put(opt.longOption, opt);
+                cliar.longOptions.put(opt.getLongOption(), opt);
             }
-        }
-        
-        if (args == null) {
-            throw new IllegalArgumentException("Arguments must not be null.");
         }
         
         for (String arg : args) {
@@ -386,12 +455,212 @@ public class Cliar {
         
         for (Option opt : options) {
             if (opt.isRequired() && !cliar.parsedOptions.containsKey(opt)) {
-                // NOTE: preference is longOption > shortOption
-                String name = opt.hasLongOption() ? "--" + opt.getLongOption() : "-" + opt.getShortOption();
-                throw new IllegalArgumentException(String.format("Missing required option %s.", name));
+                throw new IllegalArgumentException(String.format("Missing required option %s.", opt.getName()));
             }
         }
         
         return cliar;
+    }
+    
+    /**
+     * Returns the boolean value associated with the given option.
+     * <p>
+     * This method is intended for boolean flags, i.e. options that do not expect
+     * a value. If the option was supplied on the command line, this method returns
+     * {@code true}. Otherwise, {@code defaultValue} is returned.
+     *
+     * @param name the declared option
+     * @param defaultValue the value to return if the option was not supplied
+     * @return {@code true} if the option is present, otherwise {@code defaultValue}
+     * @throws IllegalStateException if the option expects a value
+     */
+    public boolean getBoolean(Option name, boolean defaultValue) throws IllegalStateException{
+        if (name.expectsValue()) {
+            throw new IllegalStateException(String.format("Option \'%s\' expects a value and cannot be used as a boolean.", name.getName()));
+        }
+
+        String val = parsedOptions.get(name);
+        
+        return null == val ? defaultValue : Boolean.parseBoolean(val);
+    }
+    
+    /**
+     * Returns the byte value associated with the given option.
+     * <p>
+     * This method may only be used with options that expect a value. If the option
+     * was not supplied, {@code defaultValue} is returned. If the supplied value
+     * cannot be parsed as a byte, a {@link NumberFormatException} is thrown.
+     *
+     * @param name the declared option
+     * @param defaultValue the value to return if the option was not supplied
+     * @return the parsed byte value or {@code defaultValue} if absent
+     * @throws IllegalStateException if the option does not expect a value
+     * @throws NumberFormatException if the value cannot be parsed as a byte
+     */
+    public byte getByte(Option name, byte defaultValue) throws IllegalStateException, NumberFormatException {
+        if (!name.expectsValue()) {
+            throw new IllegalStateException(String.format("Option \'%s\' does not expect a value.", name.getName()));
+        }
+        
+        String val = parsedOptions.get(name);
+        
+        return null == val ? defaultValue : Byte.parseByte(val);
+    }
+
+    /**
+     * Returns the short value associated with the given option.
+     * <p>
+     * This method may only be used with options that expect a value. If the option
+     * was not supplied, {@code defaultValue} is returned. If the supplied value
+     * cannot be parsed as a short, a {@link NumberFormatException} is thrown.
+     *
+     * @param name the declared option
+     * @param defaultValue the value to return if the option was not supplied
+     * @return the parsed short value or {@code defaultValue} if absent
+     * @throws IllegalStateException if the option does not expect a value
+     * @throws NumberFormatException if the value cannot be parsed as a short
+     */
+    public short getShort(Option name, short defaultValue) throws IllegalStateException, NumberFormatException {
+        if (!name.expectsValue()) {
+            throw new IllegalStateException(String.format("Option \'%s\' does not expect a value.", name.getName()));
+        }
+        
+        String val = parsedOptions.get(name);
+        
+        return null == val ? defaultValue : Short.parseShort(val);
+    }
+
+    /**
+     * Returns the integer value associated with the given option.
+     * <p>
+     * This method may only be used with options that expect a value. If the option
+     * was not supplied, {@code defaultValue} is returned. If the supplied value
+     * cannot be parsed as an integer, a {@link NumberFormatException} is thrown.
+     *
+     * @param name the declared option
+     * @param defaultValue the value to return if the option was not supplied
+     * @return the parsed integer value or {@code defaultValue} if absent
+     * @throws IllegalStateException if the option does not expect a value
+     * @throws NumberFormatException if the value cannot be parsed as an integer
+     */
+    public int getInt(Option name, int defaultValue) throws IllegalStateException, NumberFormatException {
+        if (!name.expectsValue()) {
+            throw new IllegalStateException(String.format("Option \'%s\' does not expect a value.", name.getName()));
+        }
+        
+        String val = parsedOptions.get(name);
+        
+        return null == val ? defaultValue : Integer.parseInt(val);
+    }
+
+    /**
+     * Returns the long value associated with the given option.
+     * <p>
+     * This method may only be used with options that expect a value. If the option
+     * was not supplied, {@code defaultValue} is returned. If the supplied value
+     * cannot be parsed as a long, a {@link NumberFormatException} is thrown.
+     *
+     * @param name the declared option
+     * @param defaultValue the value to return if the option was not supplied
+     * @return the parsed long value or {@code defaultValue} if absent
+     * @throws IllegalStateException if the option does not expect a value
+     * @throws NumberFormatException if the value cannot be parsed as a long
+     */
+    public long getLong(Option name, long defaultValue) throws IllegalStateException, NumberFormatException {
+        if (!name.expectsValue()) {
+            throw new IllegalStateException(String.format("Option \'%s\' does not expect a value.", name.getName()));
+        }
+        
+        String val = parsedOptions.get(name);
+        
+        return null == val ? defaultValue : Long.parseLong(val);
+    }
+
+    /**
+     * Returns the float value associated with the given option.
+     * <p>
+     * This method may only be used with options that expect a value. If the option
+     * was not supplied, {@code defaultValue} is returned. If the supplied value
+     * cannot be parsed as a float, a {@link NumberFormatException} is thrown.
+     *
+     * @param name the declared option
+     * @param defaultValue the value to return if the option was not supplied
+     * @return the parsed float value or {@code defaultValue} if absent
+     * @throws IllegalStateException if the option does not expect a value
+     * @throws NumberFormatException if the value cannot be parsed as a float
+     */
+    public float getFloat(Option name, float defaultValue) throws IllegalStateException, NumberFormatException {
+        if (!name.expectsValue()) {
+            throw new IllegalStateException(String.format("Option \'%s\' does not expect a value.", name.getName()));
+        }
+        
+        String val = parsedOptions.get(name);
+        
+        return null == val ? defaultValue : Float.parseFloat(val);
+    }
+
+    /**
+     * Returns the double value associated with the given option.
+     * <p>
+     * This method may only be used with options that expect a value. If the option
+     * was not supplied, {@code defaultValue} is returned. If the supplied value
+     * cannot be parsed as a double, a {@link NumberFormatException} is thrown.
+     *
+     * @param name the declared option
+     * @param defaultValue the value to return if the option was not supplied
+     * @return the parsed double value or {@code defaultValue} if absent
+     * @throws IllegalStateException if the option does not expect a value
+     * @throws NumberFormatException if the value cannot be parsed as a double
+     */
+    public double getDouble(Option name, double defaultValue) throws IllegalStateException, NumberFormatException {
+        if (!name.expectsValue()) {
+            throw new IllegalStateException(String.format("Option \'%s\' does not expect a value.", name.getName()));
+        }
+        
+        String val = parsedOptions.get(name);
+        
+        return null == val ? defaultValue : Double.parseDouble(val);
+    }
+
+    /**
+     * Returns the string value associated with the given option.
+     *
+     * @param name the declared option
+     * @param defaultValue the value to return if the option was not supplied
+     * @return the parsed string value or {@code defaultValue} if absent
+     * @throws IllegalStateException if the option does not expect a value
+     */
+    public String getString(Option name, String defaultValue) throws IllegalStateException {
+        if (!name.expectsValue()) {
+            throw new IllegalStateException(String.format("Option \'%s\' does not expect a value.", name.getName()));
+        }
+        
+        String val = parsedOptions.get(name);
+        
+        return null == val ? defaultValue : val;
+    }
+    
+    /**
+     * Returns the positional argument at the given index.
+     * <p>
+     * Positional arguments are collected in the order they appear on the command
+     * line and can be accessed by zero-based index.
+     *
+     * @param index the index of the positional argument
+     * @return the positional argument at the given index
+     * @throws IndexOutOfBoundsException if the index is out of range
+     */
+    public String getArgument(int index) throws IndexOutOfBoundsException {
+        return positionalArguments.get(index);
+    }
+    
+    /**
+     * Returns whether the given option was supplied on the command line.
+     *
+     * @param name the declared option
+     * @return {@code true} if the option is present, otherwise {@code false}
+     */
+    public boolean has(Option name) {
+        return parsedOptions.containsKey(name);
     }
 }
