@@ -21,7 +21,6 @@ This project is also part of a blog series where CLIAR is built step-by-step fro
 - Positional arguments
 - Automatically generated help text with aligned formatting
 - No external dependencies
-- Normalizes all option names to lower‑case
 - Provides validation with helpful exceptions
 
 ---
@@ -52,6 +51,11 @@ public class Main {
 
             // ...
 
+            if (cliar.getBoolean(verbose)) {
+                // ...
+            }
+
+            // ...
         } catch (IllegalArgumentException ex) {
             System.err.println(ex.getMessage());
 
@@ -108,4 +112,4 @@ Building CLIAR — A simple drop-in Java class for parsing command-line argument
 [Part 1 - Introduction](https://dev.to/onebitwonder/building-cliar-a-simple-drop-in-java-class-for-parsing-command-line-arguments-part-1-jle)  
 [Part 2 - Command line argument parsing](https://dev.to/onebitwonder/building-cliar-a-simple-drop-in-java-class-for-parsing-command-line-arguments-part-2-25ja)  
 [Part 3 - Option registration and validation](https://dev.to/onebitwonder/building-cliar-a-simple-drop-in-java-class-for-parsing-command-line-arguments-part-3-2pd1)
-Part 4 - Exposing options to the user ... coming soon
+[Part 4 - Accessing parsed options and generating help messages](https://dev.to/onebitwonder/building-cliar-a-simple-drop-in-java-class-for-parsing-command-line-arguments-final-part-of-4-2oe3)
