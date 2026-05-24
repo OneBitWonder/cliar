@@ -240,8 +240,6 @@ public class Cliar {
     /**
      * The set of all {@link Option} instances declared for this CLIAR parser.
      * <p>
-     * These options define the complete interface of the command line: short
-     * options, long options, descriptions, and whether a value is expected.
      * The array is used internally for validation and for generating the
      * formatted help text returned by {@link #help()}.
      */
@@ -638,6 +636,19 @@ public class Cliar {
         String val = parsedOptions.get(name);
         
         return null == val ? defaultValue : val;
+    }
+    
+    /**
+     * Returns the number of positional arguments parsed from the command line.
+     * <p>
+     * Positional arguments are collected in the order they appear and can be
+     * accessed individually using {@link #getArgument(int)}. This method allows
+     * callers to determine how many such arguments were supplied.
+     *
+     * @return the number of positional arguments
+     */
+    public int getNumArguments() {
+        return positionalArguments.size();
     }
     
     /**
